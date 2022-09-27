@@ -163,36 +163,36 @@ int main(void)
 		// When buttons for changing player's number is pressed
 		if(player_number_plus_button_pressed)
 		{
-			player_number_plus_button_pressed = 0;
 			set_number(1, 0);
+			player_number_plus_button_pressed = 0;
 		}
 		else if(player_number_minus_button_pressed)
 		{
-			player_number_minus_button_pressed = 0;
 			set_number(-1, 0);
+			player_number_minus_button_pressed = 0;
 		}
 		// When buttons for changing round number is pressed
 		if(round_number_plus_button_pressed)
 		{
-			round_number_plus_button_pressed = 0;
 			set_number(0, 1);
+			round_number_plus_button_pressed = 0;
 		}
 		else if(round_number_minus_button_pressed)
 		{
-			round_number_minus_button_pressed = 0;
 			set_number(0, -1);
+			round_number_minus_button_pressed = 0;
 		}
 		// When shuffle button is pressed
 		if(shuffle_button)
 		{
-			shuffle_button = 0;
 			shuffle_cards();
+			shuffle_button = 0;
 		}
 		// When deal button is pressed
 		if(deal_button)
 		{
-			deal_button = 0;
 			deal_cards();
+			deal_button = 0;
 		}
 	}
 }
