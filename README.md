@@ -12,5 +12,5 @@ Once the power supply of the project is connected, the program starts. Once the 
 
 Each variable will be changed by the corresponded button on the UI(User Interface). Once the corresponded button is pressed, the variable will be changed to 1 and activate the corresponded function. Note that the variable will be changed back to 0 after the function is activated, so that it won't be activating the same function infinite times and allow the user to activate the function again by pressing the button.
 
-## Funtion Explaination
+## Function Explaination
 
