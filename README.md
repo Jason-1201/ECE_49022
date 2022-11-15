@@ -2,15 +2,13 @@
 
 ## Code Logic Explaination
 
-Once the power supply of the project is connected, the program starts. Once the program starts, it displays the number of players and rounds on the LCD. Then, it enters a infinite loop, which every loop checks the value of 6 variables: 
+Once the power supply of the project is connected, the program starts. After the program starts, it displays the number of players and rounds on the LCD. Then, it enters a infinite loop that puts the system into sleep mode and wait for interrupts. The 6 expected interrupts are the following:
 * player_number_plus_button_pressed
 * player_number_minus_button_pressed
 * round_number_plus_button_pressed
 * round_number_minus_button_pressed
-* shuffle_button
-* deal_button
-
-Each variable will be changed by the corresponded button on the UI(User Interface). Once the corresponded button is pressed, the variable will be changed to 1 and activate the corresponded function. Note that the variable will be changed back to 0 after the function is activated, so that it won't be activating the same function infinite times and allow the user to activate the function again by pressing the button.
+* shuffle_button_pressed
+* deal_button_pressed
 
 ## Program Explaination
 
