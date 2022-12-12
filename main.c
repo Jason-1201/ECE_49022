@@ -5,10 +5,11 @@
 #include "stm32f0xx.h"
 #include "lcd.h"
 
-int player_number = 1;
-int round_number = 1;
-int round_number_1 = 0; // first digit of round number
-int round_number_2 = 1; // second digit of round number
+
+//In ascii, 0 = 48,1=49 9 = 57
+int player_number = 49;
+int round_number1 = 48; // first digit of round number
+int round_number2 = 49; // second digit of round number
 
 // Prototypes for miscellaneous things in lcd.c
 void nano_wait(unsigned int);
@@ -59,17 +60,9 @@ void spi_init_oled(void)
     spi_cmd(0x0c); // turn the display on
 }
 
-int num_ascii(int num)
-{
-	//In ascii, '0' => 48, '9' => 57
-    return num + 48;
-}
-
 // LCD display via SPI
-void spi_display()
+void spi_display(const char * str1, const char * str2)
 {
-	const char str1[] = "Player: ";
-	const char str2[] = "Round: ";
     // move the cursor to the upper row position
     spi_cmd(0x02);
 
@@ -79,7 +72,7 @@ void spi_display()
         spi_data(str1[i]); //for each non-NUL character of the string.
     }
     //display player number
-    spi_data(num_ascii(player_number));
+    spi_data(player_number);
 
     // move the cursor to the lower row (offset 0x40)
     spi_cmd(0xc0);
@@ -90,12 +83,12 @@ void spi_display()
     }
 
     //display round number
-    spi_data(num_ascii(round_number_1));
-    spi_data(num_ascii(round_number_2));
+    spi_data(round_number1);
+    spi_data(round_number2);
 
 }
 
-
+// Display function for deal and shuffle buttons
 void spi_display2(const char * str1, const char * str2)
 {
     // move the cursor to the upper row position
@@ -116,72 +109,64 @@ void spi_display2(const char * str1, const char * str2)
     }
 }
 
-void set_number(int change_player_number, int change_round_number)
-{
-	// change_player_number = 0/1/-1 -> player_number+0 / player_number+1 / player_number-1
-	// change_round_number = 0/1/-1 -> round_number+0 / round_number+1 / round_number-1
-	int number_changed = 0;
-	// Check if the player's number is changed
-	// 1 <= player_number <= 8
-	if(change_player_number == 1)
-	{
-		if(player_number < 8)
-		{
-			player_number++;
-			number_changed = 1;
-		}
-	}
-	else if(change_player_number == -1)
-	{
-		if(player_number > 1)
-		{
-			player_number--;
-			number_changed = 1;
-		}
-	}
-	// Check if the round number is changed
-	// 1 <= round_number
-	if(change_round_number == 1)
-	{
-		if(round_number < 52)
-		{
-			round_number++;
-			number_changed = 1;
-		}
-	}
-	else if(change_round_number == -1)
-	{
-		if(round_number > 1)
-		{
-			round_number--;
-			number_changed = 1;
-		}
-	}
-	int max_round_number;
-	// If number is changed, make sure every round deal at least one card.
-	if(number_changed)
-	{
-		max_round_number = 52 / player_number;
-		if(52 % player_number)
-		{
-			max_round_number++;
-		}
-		if(round_number > max_round_number)
-		{
-			round_number = max_round_number;
-		}
-		round_number_1 = round_number / 10;
-		round_number_2 = round_number % 10;
-		// Display the changed number on the LCD
-		spi_display();
-	}
+
+void round(int operator){
+    if(operator == 1){ //add
+        if(round_number2 == 57){ //9
+            round_number2 = 48;
+            round_number1 = round_number1 + 1;
+        }else{
+            round_number2 = round_number2 + 1;
+        }
+    }else if(operator == 2){ //minus
+        if(round_number2 == 49){ //1
+            if(round_number1 == 48){
+                round_number2 = 49;
+                round_number1 = 48;
+            }else{
+                round_number2 = 48;
+            }
+        }else if(round_number2 == 48){
+            if(round_number1 == 48){
+                round_number2 = 49;
+            }else{
+                round_number2 = 57;
+                round_number1 = round_number1 - 1;
+            }
+        }
+        else{
+            round_number2 = round_number2 - 1;
+        }
+    }
 }
 
-//will be using pc10 through pc15 as 6 buttons
+void player(int operator){
+    if(operator == 1){ // add
+        if(player_number == 56){ //8 = max player number
+            player_number = 56;
+        }else{
+
+            player_number = player_number + 1;
+        }
+    }else if(operator == 2){ // minus
+        if(player_number == 49){ //1 = min player number
+            player_number = 49;
+        }else{
+            player_number = player_number - 1;
+        }
+    }
+}
+
+//will be using pc10 - pc13, pa4, and pa5 as 6 buttons
 void setup_button(){
     //Activate the RCC clock to GPIO Port C.
     RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
     RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+
+    GPIOC->MODER &= ~GPIO_MODER_MODER8; //pc8
+    GPIOC->MODER |= GPIO_MODER_MODER8_0;
+    GPIOC->ODR |= GPIO_ODR_8; //always high
+
     // INPUT (00)
     GPIOC->MODER &= ~GPIO_MODER_MODER10;
     GPIOC->MODER &= ~GPIO_MODER_MODER11;
@@ -203,6 +188,13 @@ void setup_button(){
     GPIOC->PUPDR |= GPIO_PUPDR_PUPDR13_1;
     GPIOA->PUPDR |= GPIO_PUPDR_PUPDR4_1;
     GPIOA->PUPDR |= GPIO_PUPDR_PUPDR5_1;
+    //  PULL UP (01)
+//    GPIOC->PUPDR |= GPIO_PUPDR_PUPDR10_0;
+//    GPIOC->PUPDR |= GPIO_PUPDR_PUPDR11_0;
+//    GPIOC->PUPDR |= GPIO_PUPDR_PUPDR12_0;
+//    GPIOC->PUPDR |= GPIO_PUPDR_PUPDR13_0;
+//    GPIOA->PUPDR |= GPIO_PUPDR_PUPDR4_0;
+//    GPIOA->PUPDR |= GPIO_PUPDR_PUPDR5_0;
 }
 
 //set up interrupt for receiving button actions
@@ -210,15 +202,15 @@ void enable_exti(){
     // SYSCFG & COMP clock enable
     RCC->APB2ENR |= RCC_APB2ENR_SYSCFGCOMPEN;
     // PA1 TO PA6
-    SYSCFG->EXTICR[2] |= SYSCFG_EXTICR3_EXTI10_PC; //PA6
-    SYSCFG->EXTICR[2] |= SYSCFG_EXTICR3_EXTI11_PC; //PA4
-    SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI12_PC; //PA5
-    SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI13_PC; //PA6
+    SYSCFG->EXTICR[2] |= SYSCFG_EXTICR3_EXTI10_PC; //PC10
+    SYSCFG->EXTICR[2] |= SYSCFG_EXTICR3_EXTI11_PC; //PC11
+    SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI12_PC; //PC12
+    SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI13_PC; //PC13
     SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PA; //PA4
     SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PA; //PA5
 }
 
-// An EXTI interrupt is generated on the rising edge of PA1.
+// An EXTI interrupt is generated on the rising edge of each button.
 void init_rtsr(){
     EXTI->RTSR |= EXTI_RTSR_TR10;
     EXTI->RTSR |= EXTI_RTSR_TR11;
@@ -228,7 +220,7 @@ void init_rtsr(){
     EXTI->RTSR |= EXTI_RTSR_TR5;
 }
 
-// the EXTI interrupts are unmasked for pins 1-6.
+// the EXTI interrupts are unmasked for each button pin.
 void init_imr(){
     EXTI->IMR |= EXTI_IMR_MR10;
     EXTI->IMR |= EXTI_IMR_MR11;
@@ -238,57 +230,177 @@ void init_imr(){
     EXTI->IMR |= EXTI_IMR_MR5;
 }
 
-//Enable the two interrupts for EXTI pins 0-1, 2-3 and EXTI pins 4-15.
+//Enable the interrupt for EXTI pins 4-15.
 void init_iser(){
     NVIC->ISER[0] |= 0x80;
 }
-//
-//// Dealing motor function - PB2
-//void motor(){
-//    RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
-//    GPIOB->MODER |= GPIO_MODER_MODER2_0;
-//
-//    while(1){
-//        GPIOB->ODR |= GPIO_ODR_2;
-//        nano_wait(100000);
-//        GPIOB->ODR &= ~GPIO_ODR_2;
-//        nano_wait(100000);
-//    }
-//}
 
 void EXTI4_15_IRQHandler(){
-	if (GPIOC->IDR & (0x1<<10)){ // pc8 - add player number
-		EXTI->PR = EXTI_PR_PR10;
-		set_number(1, 0);
-		nano_wait(300000000);
-	}
-	else if (GPIOC->IDR & (0x1<<11)){ //pc9 - decrease player number
-		EXTI->PR = EXTI_PR_PR11;
-		set_number(-1, 0);
-		nano_wait(300000000);
-	}
-	else if (GPIOC->IDR & (0x1<<12)){ //pc10 - add round number
-		EXTI->PR = EXTI_PR_PR12;
-		set_number(0, 1);
-		nano_wait(300000000);
-	}
-	else if (GPIOC->IDR & (0x1<<13)){ //pc11 - decrease round number
+    if (GPIOC->IDR & (0x1<<10)){ // pc10 - add player number
+        EXTI->PR = EXTI_PR_PR10;
+        player(1);
+        spi_display("Player: ", "Round: ");
+        nano_wait(300000000);
+    }
+    else if (GPIOC->IDR & (0x1<<11)){ //pc11 - decrease player number
+        EXTI->PR = EXTI_PR_PR11;
+        player(2);
+        spi_display("Player: ", "Round: ");
+        nano_wait(300000000);
+        }
+    else if (GPIOC->IDR & (0x1<<12)){ //pc12 - add round number
+        EXTI->PR = EXTI_PR_PR12;
+        round(1);
+        spi_display("Player: ", "Round: ");
+        nano_wait(300000000);
+    }
+    else if (GPIOC->IDR & (0x1<<13)){ //pc13 - decrease round number
         EXTI->PR = EXTI_PR_PR13;
-		set_number(0, -1);
+        round(2);
+        spi_display("Player: ", "Round: ");
         nano_wait(300000000);
     }
-    else if (GPIOA->IDR & (0x1<<4)){ //pc12 - start shuffle process
+    else if (GPIOA->IDR & (0x1<<4)){ //pa4 - start shuffle process
         EXTI->PR = EXTI_PR_PR4;
-        // add shuffle button function
-        spi_display2("Shuffling   ", "Process  ");
+        spi_display2("Shuffling   ", "Process   ");
+        shuffle();
+        spi_display("Player: ", "Round: ");
         nano_wait(300000000);
     }
-    else if (GPIOA->IDR & (0x1<<5)){ //pc13 - start deal process
+    else if (GPIOA->IDR & (0x1<<5)){ //pa5 - start deal process
         EXTI->PR = EXTI_PR_PR5;
-        // add deal button function
-        spi_display2("Dealing   ", "Process  ");
+        spi_display2("Dealing   ", "Process   ");
+
+        setup_deal();
+
+            for(int j = 0; j < 2; j++){
+                  nano_wait(300000000); //
+            }
+            int round_number = (round_number1-48) * 10 + (round_number2-48);
+            int player = (player_number-48);
+
+            for(int i = 0; i < round_number; i++){
+                  for(int j = 0; j < player; j++){
+                        deal();
+                        if(player == 1)
+                        {
+                              continue;
+                        }
+                        for(int k = 0; k < (600/player); k++){
+                              GPIOB->ODR |= GPIO_ODR_6;
+                              nano_wait(1000000);
+                              GPIOB->ODR &= ~GPIO_ODR_6;
+                              nano_wait(1000000);
+                        }
+                  }
+            }
+            spi_display("Player: ", "Round: ");
+
         nano_wait(300000000);
     }
+}
+
+// Dealing motor function - PB2
+void motor(){
+    RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+    GPIOB->MODER |= GPIO_MODER_MODER2_0;
+
+    while(1){
+        GPIOB->ODR |= GPIO_ODR_2;
+        nano_wait(100000);
+        GPIOB->ODR &= ~GPIO_ODR_2;
+        nano_wait(100000);
+    }
+}
+
+void init_card_motors(){
+      RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+      GPIOB->MODER |= GPIO_MODER_MODER6_0 | GPIO_MODER_MODER4_0 | GPIO_MODER_MODER2_0 |GPIO_MODER_MODER0_0;
+}
+
+void deal_random(int PinNum){
+      int pulse, numPulses;
+      numPulses = 38; // # of steps
+      pulse = 500000; //pulse on-time necessary for logic high detection (~500ms)
+
+      switch(PinNum){
+      case 0:
+            {
+                  for(int i = 0; i < numPulses; i ++){
+                                    GPIOB->ODR |= GPIO_ODR_0;
+                                    nano_wait(pulse);
+                                    GPIOB->ODR &= ~GPIO_ODR_0;
+                  }
+                  return;
+            }
+      case 4:
+            {
+                  for(int i = 0; i < numPulses; i ++){
+                        GPIOB->ODR |= GPIO_ODR_4;
+                        nano_wait(pulse);
+                        GPIOB->ODR &= ~GPIO_ODR_4;
+                  }
+                  return;
+            }
+      case 2:
+            {
+                  for(int i = 0; i < numPulses; i ++){
+                              GPIOB->ODR |= GPIO_ODR_2;
+                              nano_wait(pulse);
+                              GPIOB->ODR &= ~GPIO_ODR_2;
+                  }
+                  return;
+            }
+      case 6:
+            {
+                  for(int i = 0; i < numPulses; i ++){
+                        GPIOB->ODR |= GPIO_ODR_6;
+                        nano_wait(pulse);
+                        GPIOB->ODR &= ~GPIO_ODR_6;
+                  }
+                  return;
+            }
+
+      }
+}
+
+
+void shuffle(){
+      for(int i = 0; i < 20; i++){
+            for(int h = 0; h < 5; h++){//5->3
+                  deal_random(4);
+                  nano_wait(500000); // continuous mode 5->10
+            }
+
+            for(int j = 0; j < 1; j++){
+                  nano_wait(100000000); // 0.5s delay 75->100
+            }
+
+
+            for(int k = 0; k < 5; k++){//5->3
+                  deal_random(0);
+                  nano_wait(500000); // continuous mode
+            }
+
+            for(int j = 0; j < 1; j++){
+                  nano_wait(100000000); // 0.5s delay 75->100
+            }
+      }
+}
+
+void setup_deal(){ //deal one card?
+      for(int j = 0; j < 2; j++){
+            deal_random(2);
+            nano_wait(750000);
+      }
+}
+
+
+void deal(){ //deal one card?
+      for(int i = 0; i < 5; i++){
+                  deal_random(2);
+                  nano_wait(700000);
+      }
 }
 
 int main(void)
@@ -302,7 +414,9 @@ int main(void)
     init_imr();
     init_iser();
 
-    spi_display();
+    spi_display("Player: ", "Round: ");
+
+    init_card_motors();
 
     for(;;) {
         asm("wfi");
